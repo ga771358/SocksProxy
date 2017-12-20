@@ -74,12 +74,13 @@ int main(int argc, char* argv[]){
 						check = 0;
 						break;
 					}
-					pos++;
+					
 					if(strcmp("*", token) == 0) ;
 					else if(atoi(token) != (int)request[3+pos]) {
 						check = 0;
 						break;
-					}					
+					}
+					pos++;				
 				}
 				ac |= check;
     		}
@@ -143,7 +144,7 @@ int main(int argc, char* argv[]){
     			memcpy(reply+2, &sv_addr.sin_port, 2);
     			memcpy(reply+4, &sv_addr.sin_addr.s_addr, 4);
     			
-    			//write(connfd, reply, 8); //need?
+    			write(connfd, reply, 8); //need?
     			if(!ac) exit(0);
     			int dstfd = accept(fd, (struct sockaddr *) &cli_addr, &clilen);
     			
