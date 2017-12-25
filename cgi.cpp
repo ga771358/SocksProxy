@@ -5,6 +5,8 @@ using namespace std;
 
 ofstream ff("log.txt",ios::out);
 typedef struct info {
+	int flag;
+	unsigned char req[100];
 	int connfd;
 	FILE* fptr;
 	char msg[MAXBUF];
@@ -109,19 +111,18 @@ int main(int argc, char* argv[],char* envp[]) {
  		server.connfd = socket(AF_INET, SOCK_STREAM, 0);
  		client_sin.sin_family = AF_INET;
 
- 		int flag = fcntl(server.connfd, F_GETFL, 0);
- 		fcntl(server.connfd, F_SETFL, flag | O_NONBLOCK);
+ 		server.flag = fcntl(server.connfd, F_GETFL, 0);
+ 		fcntl(server.connfd, F_SETFL, server.flag | O_NONBLOCK);
 
  		if(hostname_to_ip(server_data[id].domain_name, ip)) close_socket(server);
  		else {
 			inet_pton(AF_INET, ip, &client_sin.sin_addr);
 			client_sin.sin_port = htons(server_data[id].port);
 			if(server.proxy) {
-
 	 			request[0] = 4,request[1] = 1;
 	 			memcpy(request+2, &client_sin.sin_port, 2);
 	 			memcpy(request+4, &client_sin.sin_addr.s_addr, 4);
-				
+				memcpy(server.req, request, 8);
 				hostname_to_ip(server_data[id].proxy_domain_name, ip);
 				inet_pton(AF_INET, ip, &client_sin.sin_addr);
 				client_sin.sin_port = htons(server_data[id].proxy_port);
@@ -136,6 +137,7 @@ int main(int argc, char* argv[],char* envp[]) {
 			}
 			else {
 				if(server.proxy) {
+					
 					write(server.connfd, request, 8);
 					read(server.connfd, reply, MAXBUF);
 					if(reply[0] == 0 && reply[1] == 90) ;
@@ -172,10 +174,13 @@ int main(int argc, char* argv[],char* envp[]) {
 		 				if (getsockopt(server.connfd, SOL_SOCKET, SO_ERROR, &err, &errlen) < 0 || err != 0) close_socket(server);
 		 				else {
 		 					if(server.proxy) {
-								write(server.connfd, request, 8);
+		 				
+							    fcntl(server.connfd, F_SETFL, server.flag);
+							    write(server.connfd, server.req, 8);
 								read(server.connfd, reply, MAXBUF);
 								if(reply[0] == 0 && reply[1] == 90) ;
 								else {
+									
 									close_socket(server);
 									continue;
 								}
