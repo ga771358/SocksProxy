@@ -16,7 +16,7 @@ int TcpListen(struct sockaddr_in* servaddr,socklen_t servlen,int port){
     return listenfd;
 }
 
-void removezombie(int signo) { while ( waitpid(-1 , NULL, WNOHANG) > 0 ) cout << "remove zombie!" << endl; }
+void removezombie(int signo) { while ( waitpid(-1 , NULL, WNOHANG) > 0 ) ; }//cout << "remove zombie!" << endl; }
 
 int readline(int fd,char* ptr) {
 	char* now = ptr;
@@ -27,6 +27,7 @@ int readline(int fd,char* ptr) {
     }
     return now-ptr;
 }
+
 
 int main(int argc, char* argv[]){
 
@@ -54,7 +55,7 @@ int main(int argc, char* argv[]){
 			FD_ZERO(&rset);
     		
     		if(VN != 4) exit(0);
-    		cout << "firewall" << endl;
+    		
     		FILE* fptr = fopen("socks.conf" , "r");
     		char line[MAXLINE];
     		
@@ -90,15 +91,29 @@ int main(int argc, char* argv[]){
 			if(ac) reply[1] = 90;
 			else reply[1] = 91;
 
-    		if(ac) cout << "PASS firewall" << endl;
-    		else cout << "BLOCK firewall" << endl;
+    		//if(ac) cout << "PASS firewall" << endl;
+    		//else cout << "BLOCK firewall" << endl;
+
+    		struct sockaddr_in sin;
+    		
+    		cout << "<S_IP>:" << inet_ntoa(cli_addr.sin_addr)  << endl;
+    		cout << "<S_PORT>:" <<  ntohs(cli_addr.sin_port) << endl;
+			sin.sin_addr.s_addr = htonl(DST_IP);
+			sin.sin_port = htons(DST_PORT);
+    		cout << "<D_IP>:" <<  inet_ntoa(sin.sin_addr) << endl;
+    		cout << "<D_PORT>:" <<  ntohs(sin.sin_port) << endl;
+
 
     		if(CD == 1) { 
-    			cout << "connect mode" << endl;
+    			cout << "<Command>:CONNECT" << endl;
     			
     			write(connfd, reply, 8); //accept
 
-    			if(!ac) exit(0);
+    			if(!ac) {
+    				cout << "<Reply>:Reject" << endl;
+    				exit(0);
+    			}
+    			else cout << "<Reply>:Accept" << endl;
     			
     			struct sockaddr_in client_sin;
     			
@@ -108,14 +123,14 @@ int main(int argc, char* argv[]){
 		 		client_sin.sin_family = AF_INET;
 				client_sin.sin_addr.s_addr = htonl(DST_IP);
 				client_sin.sin_port = htons(DST_PORT);
-				cout << "VN: " << (int)VN  << " CD: " << (int)CD  << " DST_PORT: " << DST_PORT << " DST_IP: " << inet_ntoa(client_sin.sin_addr) << endl;
+				//cout << "VN: " << (int)VN  << " CD: " << (int)CD  << " DST_PORT: " << DST_PORT << " DST_IP: " << inet_ntoa(client_sin.sin_addr) << endl;
 
 				if(connect(dstfd, (struct sockaddr *) &client_sin, sizeof(client_sin)) < 0) continue;
 				else {
 					if(dstfd > maxfd) maxfd = dstfd;
 					FD_SET(dstfd, &rset);
 				}
-			
+				int print = 1;
 				while(true) {
 					int n;
 					result_rset = rset;
@@ -125,6 +140,12 @@ int main(int argc, char* argv[]){
 						memset(request, 0, MAXBUF);
 						if((n = read(connfd, request, MAXBUF)) > 0) write(dstfd, request, n);
 						else break;
+						if(print) {
+							write(1,"<Content>:", 10);
+							write(1, request, 12);
+							write(1, "\n", 1);
+							print = 0;
+						}
 					}
 					if(FD_ISSET(dstfd, &result_rset)) {
 						memset(request, 0, MAXBUF);
@@ -134,7 +155,7 @@ int main(int argc, char* argv[]){
 				}
     		}
     		if(CD == 2) { //bind mode
-    			cout << "bind mode" << endl;
+    			cout << "<Command>:BIND" << endl;
 
     			struct sockaddr_in sv_addr;
     			socklen_t len = sizeof(sv_addr);
@@ -145,7 +166,11 @@ int main(int argc, char* argv[]){
     			memcpy(reply+4, &sv_addr.sin_addr.s_addr, 4);
     			
     			write(connfd, reply, 8); //need?
-    			if(!ac) exit(0);
+    			if(!ac) {
+    				cout << "<Reply>:Reject" << endl;
+    				exit(0);
+    			}
+    			else cout << "<Reply>:Accept" << endl;
     			int dstfd = accept(fd, (struct sockaddr *) &cli_addr, &clilen);
     			
     			write(connfd, reply, 8); //accept
@@ -154,7 +179,7 @@ int main(int argc, char* argv[]){
     			if(connfd > maxfd) maxfd = connfd;
     			FD_SET(dstfd, &rset);
     			if(dstfd > maxfd) maxfd = dstfd;
-
+    			int print = 1;
     			while(true) {
 					int n;
 					result_rset = rset;
@@ -164,6 +189,12 @@ int main(int argc, char* argv[]){
 						memset(request, 0, MAXBUF);
 						if((n = read(connfd, request, MAXBUF)) > 0) write(dstfd, request, n);
 						else break;
+						if(print) {
+							write(1,"<Content>:", 10);
+							write(1, request, 12);
+							write(1, "\n", 1);
+							print = 0;
+						}
 					}
 					if(FD_ISSET(dstfd, &result_rset)) {
 						memset(request, 0, MAXBUF);
